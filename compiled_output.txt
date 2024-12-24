@@ -1,0 +1,1936 @@
+Compiled Text Files - Generated on 2024-12-24 09:06:36
+Source Directory: /home/kelvin/coding/ai/manticeai/chat-app
+
+##########
+FILE: vite.config.ts
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/vite.config.ts
+##########
+
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import alias from "@rollup/plugin-alias";
+import path from "path";
+
+export default defineConfig({
+  plugins: [
+    react(),
+    alias({
+      entries: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
+    }),
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
+});
+
+
+==========
+
+##########
+FILE: src/main.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/main.tsx
+##########
+
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.tsx'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+
+
+==========
+
+##########
+FILE: src/App.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/App.tsx
+##########
+
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+} from "react-router-dom";
+import Chat from "./components/Chat";
+import Sidebar from "./components/Sidebar";
+import { Toaster } from "@/components/ui/sonner";
+
+const App: React.FC = () => {
+  return (
+    <Router>
+      <div className="flex h-screen bg-gray-100">
+        <Sidebar />
+        <div className="flex-1 overflow-auto p-4">
+          <Routes>
+            <Route path="/" element={<Navigate to="/chat/new" replace />} />
+            <Route path="/chat/:chatId" element={<Chat />} />
+          </Routes>
+        </div>
+      </div>
+      <Toaster />
+    </Router>
+  );
+};
+
+export default App;
+
+
+==========
+
+##########
+FILE: src/vite-env.d.ts
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/vite-env.d.ts
+##########
+
+/// <reference types="vite/client" />
+
+
+==========
+
+##########
+FILE: src/constants/urls.ts
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/constants/urls.ts
+##########
+
+// src/constants/urls.ts
+const BASE_URL = "http://localhost:8000/api/v1/chat/";
+
+const urls = {
+  chatList: `${BASE_URL}chat-list/`,
+  chat: (chatId: string) => `${BASE_URL}chats/${chatId}/messages/`,
+  claude: `${BASE_URL}claude/`,
+  savedSystemPrompts: `${BASE_URL}saved-system-prompts/`,
+  updateSystemPrompt: (chatId: string) =>
+    `${BASE_URL}chats/${chatId}/system-prompt/`,
+  updateSavedSystemPrompt: (promptId: number) =>
+    `${BASE_URL}saved-system-prompts/${promptId}/`,
+  upload: (chatId: string) => `${BASE_URL}chats/${chatId}/upload/`,
+  attachments: (chatId: string) => `${BASE_URL}chats/${chatId}/attachments/`,
+  deleteAttachment: (attachmentId: string) =>
+    `${BASE_URL}attachments/${attachmentId}/`,
+  fileContent: (attachmentId: string) =>
+    `${BASE_URL}attachments/${attachmentId}/content/`,
+};
+
+export default urls;
+
+
+==========
+
+##########
+FILE: src/constants/token.ts
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/constants/token.ts
+##########
+
+const token =
+  "ce366ae740dee39c6e6d9bcdd63ff5d7de1ea080dfcd39ce81ff8a2c148608fc";
+
+export default token;
+
+
+==========
+
+##########
+FILE: src/components/Chat.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/Chat.tsx
+##########
+
+import React, { useRef, useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Settings, X, Paperclip, RefreshCw } from "lucide-react";
+import MarkdownPreview from "@uiw/react-markdown-preview";
+import { Toaster, toast } from "sonner";
+import ConfigDialog from "./ConfigDialog";
+import FileManager from "./FileManager";
+import useChat from "../hooks/useChat";
+import AttachmentSidebar from "./AttachmentSidebar";
+
+const Chat: React.FC = () => {
+  const { chatId } = useParams<{ chatId: string }>();
+  const navigate = useNavigate();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+
+  const {
+    messages,
+    newMessage,
+    setNewMessage,
+    isStreaming,
+    error,
+    attachments,
+    systemPrompt,
+    savedSystemPrompts,
+    handleSubmit,
+    handleAttachment,
+    removeAttachment,
+    handleSystemPromptChange,
+    handleSaveSystemPrompt,
+    handleUpdateSystemPrompt,
+    refreshAttachments,
+    isLoadingAttachments,
+  } = useChat(chatId || "new");
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleFileAttach = (fileIds: string[]) => {
+    setAttachedFiles(fileIds);
+    toast.success("File attached successfully");
+  };
+
+  const handleRemoveAttachedFile = (fileId: string) => {
+    setAttachedFiles(attachedFiles.filter((id) => id !== fileId));
+    toast.info("File removed from context");
+  };
+
+  const handleDeleteAttachment = async (fileId: string) => {
+    try {
+      await removeAttachment(fileId);
+      toast.success("File deleted successfully");
+    } catch (error) {
+      toast.error("Failed to delete file");
+    }
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSubmit(e, attachedFiles);
+    setAttachedFiles([]);
+  };
+
+  const handleRefreshAttachments = () => {
+    refreshAttachments();
+    toast.info("Refreshing attachments");
+  };
+
+  return (
+    <div className="w-full h-screen flex">
+      <Toaster />
+      <Card className="flex-grow overflow-hidden relative">
+        <CardHeader className="flex justify-between items-center">
+          <CardTitle>Chat</CardTitle>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefreshAttachments}
+              disabled={isLoadingAttachments}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  isLoadingAttachments ? "animate-spin" : ""
+                }`}
+              />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsConfigDialogOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="h-[calc(100vh-8rem)] flex flex-col">
+          {/* Messages display */}
+          <div className="flex-grow overflow-y-auto mb-4 space-y-4 p-4">
+            {messages.length > 0 ? (
+              <>
+                {messages.map((message, index) => (
+                  <div key={index} className="flex items-start space-x-2">
+                    <Avatar>
+                      <AvatarFallback>
+                        {message.role === "user" ? "U" : "A"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div
+                      className={`rounded-lg p-3 ${
+                        message.role === "user" ? "bg-blue-100" : "bg-gray-100"
+                      } max-w-[80%]`}
+                    >
+                      <p className="font-semibold mb-1">
+                        {message.role === "user" ? "User" : "Assistant"}
+                      </p>
+                      {message.type === "image" ? (
+                        <img
+                          src={message.content}
+                          alt="Uploaded content"
+                          className="max-w-full h-auto"
+                        />
+                      ) : message.role === "user" ? (
+                        <p>{message.content}</p>
+                      ) : (
+                        <MarkdownPreview
+                          source={message.content}
+                          style={{ padding: 16 }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="text-center text-gray-500">
+                No messages available. Start chatting!
+              </p>
+            )}
+            {error && (
+              <div className="text-red-500 font-bold text-center">{error}</div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          {/* Message input form */}
+          <form onSubmit={handleSendMessage} className="mt-auto">
+            <Textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type your message..."
+              disabled={isStreaming}
+              className="w-full mb-2"
+              rows={3}
+            />
+            <div className="flex justify-between">
+              <Button type="submit" disabled={isStreaming}>
+                Send
+              </Button>
+              <FileManager
+                chatId={chatId || "new"}
+                onAttach={handleFileAttach}
+              />
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+      <AttachmentSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        attachments={attachments}
+        attachedFiles={attachedFiles}
+        onRemoveFromContext={handleRemoveAttachedFile}
+        onDelete={handleDeleteAttachment}
+      />
+      <ConfigDialog
+        isOpen={isConfigDialogOpen}
+        onClose={() => setIsConfigDialogOpen(false)}
+        systemPrompt={systemPrompt}
+        onSystemPromptChange={handleSystemPromptChange}
+        savedSystemPrompts={savedSystemPrompts}
+        onSaveSystemPrompt={handleSaveSystemPrompt}
+        onUpdateSystemPrompt={handleUpdateSystemPrompt}
+        onSelectSystemPrompt={(prompt) => {
+          handleSystemPromptChange(prompt);
+        }}
+      />
+    </div>
+  );
+};
+
+export default Chat;
+
+
+==========
+
+##########
+FILE: src/components/Sidebar.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/Sidebar.tsx
+##########
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { Button } from "@/components/ui/button";
+import token from "@/constants/token";
+import urls from "@/constants/urls";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2 } from "lucide-react";
+
+interface Chat {
+  id: number;
+  title: string;
+}
+
+const Sidebar: React.FC = () => {
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get<Chat[]>(urls.chatList, {
+          headers: { Authorization: `token ${token}` },
+        });
+        setChats(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error("Error fetching chats:", error);
+        setChats([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChats();
+  }, []);
+
+  const startNewChat = async () => {
+    navigate(`/chat/new`);
+  };
+
+  return (
+    <ScrollArea className="w-64 h-screen bg-gray-800 text-white p-4">
+      <h2 className="text-xl font-bold mb-4">Chat History</h2>
+      <Button className="mt-4 w-full" onClick={startNewChat}>
+        New Chat
+      </Button>
+      {isLoading ? (
+        <div className="flex justify-center items-center h-32">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      ) : (
+        <ul className="space-y-2 mt-4">
+          {chats?.map((chat) => (
+            <li key={chat.id}>
+              <Link
+                to={`/chat/${chat.id}`}
+                className="block hover:bg-gray-700 p-2 rounded"
+              >
+                {chat.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ScrollArea>
+  );
+};
+
+export default Sidebar;
+
+
+==========
+
+##########
+FILE: src/components/AttachmentSidebar.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/AttachmentSidebar.tsx
+##########
+
+import React from "react";
+import { X, Trash2, MinusCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+}
+
+interface AttachmentSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+  attachments: Attachment[];
+  attachedFiles: string[];
+  onRemoveFromContext: (fileId: string) => void;
+  onDelete: (fileId: string) => void;
+}
+
+const AttachmentSidebar: React.FC<AttachmentSidebarProps> = ({
+  isOpen,
+  onClose,
+  attachments,
+  attachedFiles,
+  onRemoveFromContext,
+  onDelete,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed right-0 top-0 h-full w-64 bg-white shadow-lg p-4 z-50">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Attachments</h2>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <ScrollArea className="h-[calc(100vh-6rem)]">
+        {attachments.map((attachment) => (
+          <div
+            key={attachment.id}
+            className="flex items-center justify-between py-2 border-b"
+          >
+            <span className="truncate flex-grow">{attachment.name}</span>
+            <div className="flex space-x-1">
+              {attachedFiles.includes(attachment.id) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onRemoveFromContext(attachment.id)}
+                  title="Remove from context"
+                >
+                  <MinusCircle className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onDelete(attachment.id)}
+                title="Delete attachment"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </ScrollArea>
+    </div>
+  );
+};
+
+export default AttachmentSidebar;
+
+
+==========
+
+##########
+FILE: src/components/ChatList.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ChatList.tsx
+##########
+
+// src/components/ChatList.tsx
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import axios from "axios";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import urls from "@/constants/urls";
+import token from "@/constants/token";
+
+interface Chat {
+  id: number;
+  title: string;
+}
+
+const ChatList: React.FC = () => {
+  const [chats, setChats] = useState<Chat[]>([]);
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const response = await axios.get<Chat[]>(urls.chatList, {
+          headers: {
+            Authorization: `token ${token}`,
+          },
+        });
+        setChats(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error("Error fetching chats:", error);
+        setChats([]);
+      }
+    };
+
+    fetchChats();
+  }, []);
+
+  return (
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Your Chats</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {chats.length > 0 ? (
+          <ul className="space-y-2">
+            {chats?.map((chat) => (
+              <li key={chat.id}>
+                <Link
+                  to={`/chat/${chat.id}`}
+                  className="text-blue-500 hover:underline"
+                >
+                  {chat.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No chats available.</p>
+        )}
+        <Button className="mt-4" asChild>
+          <Link to="/chat/new">Start New Chat</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default ChatList;
+
+
+==========
+
+##########
+FILE: src/components/ConfigDialog.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ConfigDialog.tsx
+##########
+
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+
+interface SavedSystemPrompt {
+  id: number;
+  title: string;
+  prompt: string;
+}
+
+interface ConfigDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  systemPrompt: string;
+  onSystemPromptChange: (prompt: string) => void;
+  savedSystemPrompts: SavedSystemPrompt[];
+  onSaveSystemPrompt: (title: string, prompt: string) => void;
+  onUpdateSystemPrompt: (id: number, title: string, prompt: string) => void;
+  onSelectSystemPrompt: (prompt: string) => void;
+}
+
+const ConfigDialog: React.FC<ConfigDialogProps> = ({
+  isOpen,
+  onClose,
+  systemPrompt,
+  onSystemPromptChange,
+  savedSystemPrompts,
+  onSaveSystemPrompt,
+  onUpdateSystemPrompt,
+  onSelectSystemPrompt,
+}) => {
+  const [promptTitle, setPromptTitle] = useState("");
+  const [selectedPromptId, setSelectedPromptId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveSystemPrompt(promptTitle, systemPrompt);
+      setPromptTitle("");
+      toast.success("System prompt saved successfully.");
+    } catch (error) {
+      console.error("Error saving system prompt:", error);
+      toast.error("Failed to save system prompt. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (selectedPromptId === null) return;
+    setIsUpdating(true);
+    try {
+      await onUpdateSystemPrompt(selectedPromptId, promptTitle, systemPrompt);
+      toast.success("System prompt updated successfully.");
+    } catch (error) {
+      console.error("Error updating system prompt:", error);
+      toast.error("Failed to update system prompt. Please try again.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleSelect = (promptId: string) => {
+    const selected = savedSystemPrompts.find(
+      (p) => p.id === parseInt(promptId)
+    );
+    if (selected) {
+      setSelectedPromptId(selected.id);
+      setPromptTitle(selected.title);
+      onSystemPromptChange(selected.prompt);
+      onSelectSystemPrompt(selected.prompt);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>System Prompt Configuration</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Input
+              id="prompt-title"
+              value={promptTitle}
+              onChange={(e) => setPromptTitle(e.target.value)}
+              placeholder="Enter prompt title..."
+              className="col-span-4"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Textarea
+              id="system-prompt"
+              value={systemPrompt}
+              onChange={(e) => onSystemPromptChange(e.target.value)}
+              placeholder="Enter system prompt..."
+              rows={5}
+              className="col-span-4"
+            />
+          </div>
+          <div className="flex justify-between items-center">
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Prompt"}
+            </Button>
+            <Button
+              onClick={handleUpdate}
+              disabled={isUpdating || selectedPromptId === null}
+            >
+              {isUpdating ? "Updating..." : "Update Prompt"}
+            </Button>
+          </div>
+          <Select onValueChange={handleSelect}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a saved prompt" />
+            </SelectTrigger>
+            <SelectContent>
+              {savedSystemPrompts.map((prompt) => (
+                <SelectItem key={prompt.id} value={prompt.id.toString()}>
+                  {prompt.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default ConfigDialog;
+
+
+==========
+
+##########
+FILE: src/components/FileManager.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/FileManager.tsx
+##########
+
+import React, { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Paperclip, X, FileIcon, Loader } from "lucide-react";
+import axios from "axios";
+import token from "@/constants/token";
+import urls from "@/constants/urls";
+
+interface FileManagerProps {
+  chatId: string;
+  onAttach: (fileIds: string[]) => void;
+}
+
+interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+}
+
+const FileManager: React.FC<FileManagerProps> = ({ chatId, onAttach }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAttachments();
+    }
+  }, [isOpen, chatId]);
+
+  const fetchAttachments = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(urls.attachments(chatId), {
+        headers: { Authorization: `token ${token}` },
+      });
+      setAttachments(response.data);
+    } catch (error) {
+      setError("Error fetching attachments. Please try again.");
+      console.error("Error fetching attachments:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setIsLoading(true);
+    setError(null);
+    setUploadProgress(0);
+
+    try {
+      await axios.post(urls.upload(chatId), formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `token ${token}`,
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total!
+          );
+          setUploadProgress(percentCompleted);
+        },
+      });
+      fetchAttachments();
+    } catch (error) {
+      setError("Error uploading file. Please try again.");
+      console.error("Error uploading file:", error);
+    } finally {
+      setIsLoading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await axios.delete(urls.deleteAttachment(attachmentId), {
+        headers: { Authorization: `token ${token}` },
+      });
+      fetchAttachments();
+    } catch (error) {
+      setError("Error deleting attachment. Please try again.");
+      console.error("Error deleting attachment:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAttach = () => {
+    onAttach(selectedFiles);
+    setIsOpen(false);
+    setSelectedFiles([]);
+  };
+
+  return (
+    <>
+      <Button variant="outline" onClick={() => setIsOpen(true)}>
+        <Paperclip className="h-4 w-4 mr-2" />
+        Manage Files
+      </Button>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>File Manager</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              type="file"
+              onChange={handleFileUpload}
+              accept=".txt,.pdf,.doc,.docx,.zip"
+              disabled={isLoading}
+            />
+            {uploadProgress > 0 && (
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            )}
+            {error && <p className="text-red-500">{error}</p>}
+            <ScrollArea className="h-[300px]">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center space-x-2 py-2"
+                  >
+                    <Checkbox
+                      checked={selectedFiles.includes(attachment.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedFiles(
+                          checked
+                            ? [...selectedFiles, attachment.id]
+                            : selectedFiles.filter((id) => id !== attachment.id)
+                        );
+                      }}
+                    />
+                    <FileIcon className="h-4 w-4" />
+                    <span className="flex-grow truncate">
+                      {attachment.name}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteAttachment(attachment.id)}
+                      disabled={isLoading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </ScrollArea>
+            <Button
+              onClick={handleAttach}
+              disabled={selectedFiles.length === 0 || isLoading}
+            >
+              Attach Selected Files
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+export default FileManager;
+
+
+==========
+
+##########
+FILE: src/components/ui/select.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/select.tsx
+##########
+
+import * as React from "react"
+import * as SelectPrimitive from "@radix-ui/react-select"
+import { Check, ChevronDown, ChevronUp } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Select = SelectPrimitive.Root
+
+const SelectGroup = SelectPrimitive.Group
+
+const SelectValue = SelectPrimitive.Value
+
+const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      className
+    )}
+    {...props}
+  >
+    {children}
+    <SelectPrimitive.Icon asChild>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </SelectPrimitive.Icon>
+  </SelectPrimitive.Trigger>
+))
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
+
+const SelectScrollUpButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollUpButton
+    ref={ref}
+    className={cn(
+      "flex cursor-default items-center justify-center py-1",
+      className
+    )}
+    {...props}
+  >
+    <ChevronUp className="h-4 w-4" />
+  </SelectPrimitive.ScrollUpButton>
+))
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
+
+const SelectScrollDownButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollDownButton
+    ref={ref}
+    className={cn(
+      "flex cursor-default items-center justify-center py-1",
+      className
+    )}
+    {...props}
+  >
+    <ChevronDown className="h-4 w-4" />
+  </SelectPrimitive.ScrollDownButton>
+))
+SelectScrollDownButton.displayName =
+  SelectPrimitive.ScrollDownButton.displayName
+
+const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, position = "popper", ...props }, ref) => (
+  <SelectPrimitive.Portal>
+    <SelectPrimitive.Content
+      ref={ref}
+      className={cn(
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        position === "popper" &&
+          "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+        className
+      )}
+      position={position}
+      {...props}
+    >
+      <SelectScrollUpButton />
+      <SelectPrimitive.Viewport
+        className={cn(
+          "p-1",
+          position === "popper" &&
+            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+        )}
+      >
+        {children}
+      </SelectPrimitive.Viewport>
+      <SelectScrollDownButton />
+    </SelectPrimitive.Content>
+  </SelectPrimitive.Portal>
+))
+SelectContent.displayName = SelectPrimitive.Content.displayName
+
+const SelectLabel = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label
+    ref={ref}
+    className={cn("py-1.5 pl-8 pr-2 text-sm font-semibold", className)}
+    {...props}
+  />
+))
+SelectLabel.displayName = SelectPrimitive.Label.displayName
+
+const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      className
+    )}
+    {...props}
+  >
+    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <SelectPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </SelectPrimitive.ItemIndicator>
+    </span>
+
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+))
+SelectItem.displayName = SelectPrimitive.Item.displayName
+
+const SelectSeparator = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Separator
+    ref={ref}
+    className={cn("-mx-1 my-1 h-px bg-muted", className)}
+    {...props}
+  />
+))
+SelectSeparator.displayName = SelectPrimitive.Separator.displayName
+
+export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+}
+
+
+==========
+
+##########
+FILE: src/components/ui/avatar.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/avatar.tsx
+##########
+
+import * as React from "react";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
+
+import { cn } from "@/lib/utils";
+
+const Avatar = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Root
+    ref={ref}
+    className={cn(
+      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
+      className
+    )}
+    {...props}
+  />
+));
+Avatar.displayName = AvatarPrimitive.Root.displayName;
+
+const AvatarImage = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Image>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Image
+    ref={ref}
+    className={cn("aspect-square h-full w-full", className)}
+    {...props}
+  />
+));
+AvatarImage.displayName = AvatarPrimitive.Image.displayName;
+
+const AvatarFallback = React.forwardRef<
+  React.ElementRef<typeof AvatarPrimitive.Fallback>,
+  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
+>(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Fallback
+    ref={ref}
+    className={cn(
+      "flex h-full w-full items-center justify-center rounded-full bg-muted",
+      className
+    )}
+    {...props}
+  />
+));
+AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
+
+export { Avatar, AvatarImage, AvatarFallback };
+
+
+==========
+
+##########
+FILE: src/components/ui/checkbox.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/checkbox.tsx
+##########
+
+import * as React from "react"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
+import { Check } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      className
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator
+      className={cn("flex items-center justify-center text-current")}
+    >
+      <Check className="h-4 w-4" />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
+))
+Checkbox.displayName = CheckboxPrimitive.Root.displayName
+
+export { Checkbox }
+
+
+==========
+
+##########
+FILE: src/components/ui/dialog.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/dialog.tsx
+##########
+
+import * as React from "react"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { X } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Dialog = DialogPrimitive.Root
+
+const DialogTrigger = DialogPrimitive.Trigger
+
+const DialogPortal = DialogPrimitive.Portal
+
+const DialogClose = DialogPrimitive.Close
+
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      className
+    )}
+    {...props}
+  />
+))
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <X className="h-4 w-4" />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+))
+DialogContent.displayName = DialogPrimitive.Content.displayName
+
+const DialogHeader = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "flex flex-col space-y-1.5 text-center sm:text-left",
+      className
+    )}
+    {...props}
+  />
+)
+DialogHeader.displayName = "DialogHeader"
+
+const DialogFooter = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      className
+    )}
+    {...props}
+  />
+)
+DialogFooter.displayName = "DialogFooter"
+
+const DialogTitle = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Title
+    ref={ref}
+    className={cn(
+      "text-lg font-semibold leading-none tracking-tight",
+      className
+    )}
+    {...props}
+  />
+))
+DialogTitle.displayName = DialogPrimitive.Title.displayName
+
+const DialogDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+))
+DialogDescription.displayName = DialogPrimitive.Description.displayName
+
+export {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogClose,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+}
+
+
+==========
+
+##########
+FILE: src/components/ui/scroll-area.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/scroll-area.tsx
+##########
+
+import * as React from "react"
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
+
+import { cn } from "@/lib/utils"
+
+const ScrollArea = React.forwardRef<
+  React.ElementRef<typeof ScrollAreaPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
+>(({ className, children, ...props }, ref) => (
+  <ScrollAreaPrimitive.Root
+    ref={ref}
+    className={cn("relative overflow-hidden", className)}
+    {...props}
+  >
+    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+      {children}
+    </ScrollAreaPrimitive.Viewport>
+    <ScrollBar />
+    <ScrollAreaPrimitive.Corner />
+  </ScrollAreaPrimitive.Root>
+))
+ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
+
+const ScrollBar = React.forwardRef<
+  React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>
+>(({ className, orientation = "vertical", ...props }, ref) => (
+  <ScrollAreaPrimitive.ScrollAreaScrollbar
+    ref={ref}
+    orientation={orientation}
+    className={cn(
+      "flex touch-none select-none transition-colors",
+      orientation === "vertical" &&
+        "h-full w-2.5 border-l border-l-transparent p-[1px]",
+      orientation === "horizontal" &&
+        "h-2.5 flex-col border-t border-t-transparent p-[1px]",
+      className
+    )}
+    {...props}
+  >
+    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
+  </ScrollAreaPrimitive.ScrollAreaScrollbar>
+))
+ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName
+
+export { ScrollArea, ScrollBar }
+
+
+==========
+
+##########
+FILE: src/components/ui/card.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/card.tsx
+##########
+
+import * as React from "react";
+
+import { cn } from "@/lib/utils";
+
+const Card = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      className
+    )}
+    {...props}
+  />
+));
+Card.displayName = "Card";
+
+const CardHeader = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    {...props}
+  />
+));
+CardHeader.displayName = "CardHeader";
+
+const CardTitle = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h3
+    ref={ref}
+    className={cn(
+      "text-2xl font-semibold leading-none tracking-tight",
+      className
+    )}
+    {...props}
+  />
+));
+CardTitle.displayName = "CardTitle";
+
+const CardDescription = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+));
+CardDescription.displayName = "CardDescription";
+
+const CardContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+));
+CardContent.displayName = "CardContent";
+
+const CardFooter = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex items-center p-6 pt-0", className)}
+    {...props}
+  />
+));
+CardFooter.displayName = "CardFooter";
+
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+};
+
+
+==========
+
+##########
+FILE: src/components/ui/sonner.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/sonner.tsx
+##########
+
+import { useTheme } from "next-themes"
+import { Toaster as Sonner } from "sonner"
+
+type ToasterProps = React.ComponentProps<typeof Sonner>
+
+const Toaster = ({ ...props }: ToasterProps) => {
+  const { theme = "system" } = useTheme()
+
+  return (
+    <Sonner
+      theme={theme as ToasterProps["theme"]}
+      className="toaster group"
+      toastOptions={{
+        classNames: {
+          toast:
+            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
+          description: "group-[.toast]:text-muted-foreground",
+          actionButton:
+            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
+          cancelButton:
+            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+        },
+      }}
+      {...props}
+    />
+  )
+}
+
+export { Toaster }
+
+
+==========
+
+##########
+FILE: src/components/ui/input.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/input.tsx
+##########
+
+import * as React from "react";
+
+import { cn } from "@/lib/utils";
+
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Input.displayName = "Input";
+
+export { Input };
+
+
+==========
+
+##########
+FILE: src/components/ui/button.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/button.tsx
+##########
+
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "@/lib/utils";
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline:
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
+      },
+      size: {
+        default: "h-10 px-4 py-2",
+        sm: "h-9 rounded-md px-3",
+        lg: "h-11 rounded-md px-8",
+        icon: "h-10 w-10",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+);
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Button.displayName = "Button";
+
+export { Button, buttonVariants };
+
+
+==========
+
+##########
+FILE: src/components/ui/textarea.tsx
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/components/ui/textarea.tsx
+##########
+
+import * as React from "react";
+
+import { cn } from "@/lib/utils";
+
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <textarea
+        className={cn(
+          "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Textarea.displayName = "Textarea";
+
+export { Textarea };
+
+
+==========
+
+##########
+FILE: src/hooks/useChat.ts
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/hooks/useChat.ts
+##########
+
+import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import token from "@/constants/token";
+import urls from "@/constants/urls";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+
+interface Message {
+  role: string;
+  content: string;
+  type?: string;
+}
+
+interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+}
+
+const useChat = (chatId: string) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [savedSystemPrompts, setSavedSystemPrompts] = useState<any[]>([]);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (chatId !== "new") {
+      fetchMessages();
+      fetchAttachments();
+    } else {
+      setMessages([]);
+    }
+    fetchSavedSystemPrompts();
+  }, [chatId]);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const response = await axios.get(urls.chat(chatId), {
+        headers: { Authorization: `token ${token}` },
+      });
+      setMessages(response.data.messages);
+      setSystemPrompt(response.data.system_prompt);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      setError("Failed to fetch messages. Please try again.");
+      toast.error("Failed to fetch messages");
+    }
+  }, [chatId]);
+
+  const fetchAttachments = useCallback(async () => {
+    setIsLoadingAttachments(true);
+    try {
+      const response = await axios.get(urls.attachments(chatId), {
+        headers: { Authorization: `token ${token}` },
+      });
+      setAttachments(response.data);
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+      setError("Failed to fetch attachments. Please try again.");
+      toast.error("Failed to fetch attachments");
+    } finally {
+      setIsLoadingAttachments(false);
+    }
+  }, [chatId]);
+
+  const refreshAttachments = useCallback(() => {
+    fetchAttachments();
+  }, [fetchAttachments]);
+
+  const fetchSavedSystemPrompts = useCallback(async () => {
+    try {
+      const response = await axios.get(urls.savedSystemPrompts, {
+        headers: { Authorization: `token ${token}` },
+      });
+      setSavedSystemPrompts(response.data);
+    } catch (error) {
+      console.error("Error fetching saved system prompts:", error);
+      setError("Failed to fetch saved system prompts. Please try again.");
+      toast.error("Failed to fetch saved system prompts");
+    }
+  }, []);
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent, attachedFileIds: string[]) => {
+      e.preventDefault();
+      if (!newMessage.trim() && attachedFileIds.length === 0) return;
+
+      const userMessage = { role: "user", content: newMessage };
+      setMessages((prevMessages) => [...prevMessages, userMessage]);
+      setNewMessage("");
+      setIsStreaming(true);
+      setError(null);
+
+      try {
+        const response = await fetch(urls.claude, {
+          method: "POST",
+          headers: {
+            Authorization: `token ${token}`,
+            "Content-Type": "application/json",
+            Accept: "application/json, text/plain, */*",
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            message: newMessage,
+            attachment_ids: attachedFileIds,
+          }),
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(response.statusText);
+        }
+
+        let assistantMessage = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          lines.forEach((line) => {
+            if (line.trim() !== "") {
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.type === "text") {
+                  assistantMessage += parsed.content;
+                  setMessages((prevMessages) => [
+                    ...prevMessages.slice(0, -1),
+                    { role: "assistant", content: assistantMessage },
+                  ]);
+                } else if (parsed.type === "chat_id") {
+                  navigate(`/chat/${parsed.content}`);
+                }
+              } catch (e) {
+                console.error("Error parsing stream:", e);
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error sending message:", error);
+        setError("Failed to send message. Please try again.");
+        toast.error("Failed to send message");
+      } finally {
+        setIsStreaming(false);
+      }
+    },
+    [chatId, newMessage, token, navigate]
+  );
+
+  const handleAttachment = useCallback(
+    async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await axios.post(urls.upload(chatId), formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `token ${token}`,
+          },
+        });
+        fetchAttachments();
+        toast.success("File uploaded successfully");
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        setError("Failed to upload file. Please try again.");
+        toast.error("Failed to upload file");
+      }
+    },
+    [chatId, fetchAttachments]
+  );
+
+  const removeAttachment = useCallback(
+    async (attachmentId: string) => {
+      try {
+        await axios.delete(urls.deleteAttachment(attachmentId), {
+          headers: { Authorization: `token ${token}` },
+        });
+        fetchAttachments();
+        toast.success("Attachment removed successfully");
+      } catch (error) {
+        console.error("Error removing attachment:", error);
+        setError("Failed to remove attachment. Please try again.");
+        toast.error("Failed to remove attachment");
+      }
+    },
+    [fetchAttachments]
+  );
+
+  const handleSystemPromptChange = useCallback((newPrompt: string) => {
+    setSystemPrompt(newPrompt);
+  }, []);
+
+  const handleSaveSystemPrompt = useCallback(
+    async (title: string, prompt: string) => {
+      try {
+        await axios.post(
+          urls.savedSystemPrompts,
+          { title, prompt },
+          { headers: { Authorization: `token ${token}` } }
+        );
+        fetchSavedSystemPrompts();
+        toast.success("System prompt saved successfully");
+      } catch (error) {
+        console.error("Error saving system prompt:", error);
+        setError("Failed to save system prompt. Please try again.");
+        toast.error("Failed to save system prompt");
+      }
+    },
+    [fetchSavedSystemPrompts]
+  );
+
+  const handleUpdateSystemPrompt = useCallback(async () => {
+    try {
+      await axios.post(
+        urls.updateSystemPrompt(chatId),
+        { system_prompt: systemPrompt },
+        { headers: { Authorization: `token ${token}` } }
+      );
+      toast.success("System prompt updated successfully");
+    } catch (error) {
+      console.error("Error updating system prompt:", error);
+      setError("Failed to update system prompt. Please try again.");
+      toast.error("Failed to update system prompt");
+    }
+  }, [chatId, systemPrompt]);
+
+  return {
+    messages,
+    newMessage,
+    setNewMessage,
+    isStreaming,
+    error,
+    attachments,
+    systemPrompt,
+    savedSystemPrompts,
+    isLoadingAttachments,
+    handleSubmit,
+    handleAttachment,
+    removeAttachment,
+    handleSystemPromptChange,
+    handleSaveSystemPrompt,
+    handleUpdateSystemPrompt,
+    refreshAttachments,
+  };
+};
+
+export default useChat;
+
+
+==========
+
+##########
+FILE: src/lib/utils.ts
+FULL PATH: /home/kelvin/coding/ai/manticeai/chat-app/src/lib/utils.ts
+##########
+
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+
+==========
