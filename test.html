@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediaLabs Agency</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/tailwindcss/dist/tailwind.min.css"
+    />
+    <style>
+      .bg-gradient {
+        background: linear-gradient(to right, #3490dc, #6366f1);
+      }
+    </style>
+  </head>
+  <body class="font-sans">
+    <header class="bg-gradient text-white py-6">
+      <div class="container mx-auto px-4 flex justify-between items-center">
+        <div class="logo text-2xl font-bold">MediaLabs Agency</div>
+        <nav>
+          <ul class="flex space-x-4">
+            <li>
+              <a href="#services" class="hover:text-gray-300">Services</a>
+            </li>
+            <li><a href="#about" class="hover:text-gray-300">About</a></li>
+            <li><a href="#contact" class="hover:text-gray-300">Contact</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <section class="bg-gradient text-white py-20">
+        <div
+          class="container mx-auto px-4 flex flex-col md:flex-row items-center"
+        >
+          <div class="md:w-1/2">
+            <h1 class="text-4xl font-bold mb-6">
+              Unleash Your Brand's Potential
+            </h1>
+            <p class="text-lg mb-8">
+              MediaLabs Agency is a leading digital marketing agency that
+              delivers innovative solutions to help businesses grow and succeed
+              online.
+            </p>
+            <a
+              href="#contact"
+              class="bg-white text-blue-600 py-2 px-4 rounded-md hover:bg-blue-600 hover:text-white transition-colors duration-300"
+              >Get Started</a
+            >
+          </div>
+          <div class="md:w-1/2 mt-8 md:mt-0">
+            <img
+              src="https://via.placeholder.com/500x300"
+              alt="Hero Image"
+              class="rounded-lg shadow-lg"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="services" class="py-20">
+        <div class="container mx-auto px-4">
+          <h2 class="text-3xl font-bold text-center mb-10">Our Services</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="bg-gray-100 p-6 rounded-lg shadow-md">
+              <h3 class="text-xl font-bold mb-4">Search Engine Optimization</h3>
+              <p class="text-gray-600">
+                Improve your website's visibility and ranking on search engines
+                like Google.
+              </p>
+            </div>
+            <div class="bg-gray-100 p-6 rounded-lg shadow-md">
+              <h3 class="text-xl font-bold mb-4">Social Media Marketing</h3>
+              <p class="text-gray-600">
+                Engage with your audience and promote your brand across social
+                media platforms.
+              </p>
+            </div>
+            <div class="bg-gray-100 p-6 rounded-lg shadow-md">
+              <h3 class="text-xl font-bold mb-4">Pay-Per-Click Advertising</h3>
+              <p class="text-gray-600">
+                Reach your target audience with targeted and effective PPC
+                campaigns.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" class="bg-gray-100 py-20">
+        <div class="container mx-auto px-4">
+          <h2 class="text-3xl font-bold text-center mb-10">
+            About MediaLabs Agency
+          </h2>
+          <div class="flex flex-col md:flex-row items-center">
+            <div class="md:w-1/2">
+              <img
+                src="https://via.placeholder.com/500x300"
+                alt="About Image"
+                class="rounded-lg shadow-lg"
+              />
+            </div>
+            <div class="md:w-1/2 mt-8 md:mt-0 md:ml-8">
+              <p class="text-gray-600 mb-4">
+                MediaLabs Agency is a team of passionate digital marketing
+                experts dedicated to helping businesses thrive online. With
+                years of experience and a deep understanding of the latest
+                trends and strategies, we craft customized solutions tailored to
+                your unique goals and objectives.
+              </p>
+              <p class="text-gray-600">
+                Our client-centric approach ensures that we deliver exceptional
+                service and measurable results, empowering you to achieve
+                success in the digital landscape.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="contact" class="py-20">
+        <div class="container mx-auto px-4">
+          <h2 class="text-3xl font-bold text-center mb-10">Get in Touch</h2>
+          <div class="max-w-md mx-auto">
+            <form>
+              <div class="mb-4">
+                <label for="name" class="block font-bold mb-2">Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  class="w-full border border-gray-400 p-2 rounded-md"
+                  required
+                />
+              </div>
+              <div class="mb-4">
+                <label for="email" class="block font-bold mb-2">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  class="w-full border border-gray-400 p-2 rounded-md"
+                  required
+                />
+              </div>
+              <div class="mb-4">
+                <label for="message" class="block font-bold mb-2"
+                  >Message</label
+                >
+                <textarea
+                  id="message"
+                  class="w-full border border-gray-400 p-2 rounded-md"
+                  rows="4"
+                  required
+                ></textarea>
+              </div>
+              <button
+                type="submit"
+                class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-300"
+              >
+                Submit
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white py-6">
+      <div class="container mx-auto px-4 text-center">
+        <p>&copy; 2023 MediaLabs Agency. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script>
+      const form = document.querySelector("form");
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const name = document.getElementById("name").value;
+        const email = document.getElementById("email").value;
+        const message = document.getElementById("message").value;
+        alert(
+          `Thank you, ${name}! We have received your message and will get back to you shortly.`
+        );
+        form.reset();
+      });
+    </script>
+  </body>
+</html>
